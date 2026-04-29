@@ -19,7 +19,7 @@ public class Coin {
     // 共享纹理（所有金币实例共用）
     private static Texture icon;
     private static boolean textureLoaded = false;
-    private static final float DRAW_SIZE = 24;
+    private static final float DRAW_SIZE = 36;
 
     public Coin(float x, float y, int value) {
         this.x = x;

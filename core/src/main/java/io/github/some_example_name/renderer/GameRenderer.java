@@ -70,7 +70,8 @@ public class GameRenderer {
      * @param player        玩家实例
      * @param upgradeSystem 升级系统（负责渲染升级面板）
      */
-    public void render(EntityManager entityManager, Player player, UpgradeSystem upgradeSystem) {
+    public void render(EntityManager entityManager, Player player, UpgradeSystem upgradeSystem,
+                        boolean isPaused, boolean showStatsPanel) {
         // ========== 世界坐标绘制 ==========
         batch.setProjectionMatrix(camera.combined);
         shapeRenderer.setProjectionMatrix(camera.combined);
@@ -83,7 +84,7 @@ public class GameRenderer {
         batch.setProjectionMatrix(hudMatrix);
         shapeRenderer.setProjectionMatrix(hudMatrix);
 
-        renderHUD(player);
+        renderHUD(player, isPaused, showStatsPanel);
         upgradeSystem.render(batch, shapeRenderer, font);
     }
 
@@ -152,36 +153,65 @@ public class GameRenderer {
     /**
      * 渲染 HUD：血条、经验条、等级和经验文字。
      */
-    private void renderHUD(Player player) {
-        float barWidth = 200;
-        float barHeight = 12;
-        float barX = (Gdx.graphics.getWidth() - barWidth) / 2;
-        float barY = Gdx.graphics.getHeight() - 30;
-        float hpPercent = (float) player.getHp() / player.getMaxHp();
+    private void renderHUD(Player player, boolean isPaused, boolean showStatsPanel) {
+        float screenW = Gdx.graphics.getWidth();
+        float screenH = Gdx.graphics.getHeight();
 
-        // 血条和经验条背景
+        // ========== 经验条：铺满屏幕最上方 ==========
+        float expBarHeight = 14;
+        float expBarY = screenH - expBarHeight;
+        float expPercent = (float) player.getExp() / player.getMaxExp();
+
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         shapeRenderer.setColor(Color.DARK_GRAY);
-        shapeRenderer.rect(barX, barY, barWidth, barHeight);
-        shapeRenderer.setColor(hpPercent > 0.5f ? Color.GREEN : hpPercent > 0.25f ? Color.YELLOW : Color.RED);
-        shapeRenderer.rect(barX, barY, barWidth * hpPercent, barHeight);
-
-        float expBarY = barY - 18;
-        float expPercent = (float) player.getExp() / player.getMaxExp();
-        shapeRenderer.setColor(Color.DARK_GRAY);
-        shapeRenderer.rect(barX, expBarY, barWidth, barHeight);
+        shapeRenderer.rect(0, expBarY, screenW, expBarHeight);
         shapeRenderer.setColor(Color.CYAN);
-        shapeRenderer.rect(barX, expBarY, barWidth * expPercent, barHeight);
+        shapeRenderer.rect(0, expBarY, screenW * expPercent, expBarHeight);
+
+        // ========== 血条：屏幕左上角，经验条下方 ==========
+        float hpBarWidth = 180;
+        float hpBarHeight = 14;
+        float hpBarX = 10;
+        float hpBarY = screenH - expBarHeight - 8 - hpBarHeight;
+        float hpPercent = (float) player.getHp() / player.getMaxHp();
+
+        shapeRenderer.setColor(Color.DARK_GRAY);
+        shapeRenderer.rect(hpBarX, hpBarY, hpBarWidth, hpBarHeight);
+        shapeRenderer.setColor(hpPercent > 0.5f ? Color.GREEN : hpPercent > 0.25f ? Color.YELLOW : Color.RED);
+        shapeRenderer.rect(hpBarX, hpBarY, hpBarWidth * hpPercent, hpBarHeight);
+
+        // ========== 左下角按钮背景 ==========
+        float btnSize = 40;
+        float btnY = 20;
+        float pauseX = 20;
+        float statsX = 70;
+
+        // 暂停按钮背景
+        shapeRenderer.setColor(isPaused ? Color.GOLD : Color.DARK_GRAY);
+        shapeRenderer.rect(pauseX, btnY, btnSize, btnSize);
+        // 背包按钮背景
+        shapeRenderer.setColor(showStatsPanel ? Color.GOLD : Color.DARK_GRAY);
+        shapeRenderer.rect(statsX, btnY, btnSize, btnSize);
         shapeRenderer.end();
 
-        // 等级、经验和金币文字（白色）
+        // ========== 文字：等级、金币、按钮文字 ==========
         batch.begin();
+
+        // 等级文字（左上角，血条下方）
         font.setColor(Color.WHITE);
         font.draw(batch, "Lv." + player.getLevel() + "  Exp: " + player.getExp() + "/" + player.getMaxExp(),
-                  10, Gdx.graphics.getHeight() - 10);
+                  10, hpBarY - 8);
+
+        // 金币数量（右上角，经验条下方）
         font.setColor(Color.GOLD);
-        font.draw(batch, "金币: " + player.getCurrentCoins(),
-                  10, Gdx.graphics.getHeight() - 30);
+        String coinText = "金币: " + player.getCurrentCoins();
+        font.draw(batch, coinText, screenW - 140, screenH - expBarHeight - 8);
+
+        // 按钮文字
+        font.setColor(Color.WHITE);
+        font.draw(batch, "暂", pauseX + 12, btnY + 30);
+        font.draw(batch, "背", statsX + 12, btnY + 30);
+
         batch.end();
     }
 }

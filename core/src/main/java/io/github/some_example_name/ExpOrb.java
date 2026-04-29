@@ -15,7 +15,7 @@ public class ExpOrb {
     // 共享纹理
     private static Texture icon;
     private static boolean textureLoaded = false;
-    private static final float DRAW_SIZE = 20;
+    private static final float DRAW_SIZE = 32;
 
     public ExpOrb(float x, float y, int expValue) {
         this.x = x;                              // X 坐标

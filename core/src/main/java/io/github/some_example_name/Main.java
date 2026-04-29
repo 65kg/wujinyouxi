@@ -78,7 +78,7 @@ public class Main extends ApplicationAdapter {
      * - PLAYING: 游戏进行中
      */
     private enum GameState {
-        MENU, WEAPON_SELECT, LOADING, PLAYING
+        MENU, WEAPON_SELECT, LOADING, PLAYING, STRENGTHEN
     }
 
     private GameState currentState;
@@ -103,6 +103,22 @@ public class Main extends ApplicationAdapter {
     // ==================== 金币系统 ====================
     /** 玩家累计持有的总金币（跨局保留） */
     private int totalCoins;
+
+    // ==================== 局外强化系统 ====================
+    /** 每个升级项的局外等级（0-5），持久化到游戏进程中 */
+    private int[] permanentLevels;
+    private static final int MAX_PERMANENT_LEVEL = 5;
+    private static final int BASE_UPGRADE_COST = 500;
+    /** 强化界面滚动偏移 */
+    private float strengthenScrollY = 0;
+
+    // ==================== 暂停与属性面板 ====================
+    private boolean isPaused;
+    private boolean showStatsPanel;
+    private static final float GAME_BTN_SIZE = 40;
+    private static final float GAME_BTN_Y = 20;
+    private static final float PAUSE_BTN_X = 20;
+    private static final float STATS_BTN_X = 70;
 
     // ==================== 主菜单配置 ====================
     private static final String[] MENU_BUTTONS = {"开始", "强化", "图鉴"};
@@ -138,6 +154,9 @@ public class Main extends ApplicationAdapter {
         shapeRenderer = new ShapeRenderer();
         initFont();
 
+        // ------ 禁用 Windows 输入法（避免中文输入法拦截游戏按键）------
+        disableIME();
+
         // ------ 初始化摄像机 ------
         camera = new OrthographicCamera();
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
@@ -160,6 +179,11 @@ public class Main extends ApplicationAdapter {
         // ------ 初始状态：主菜单 ------
         currentState = GameState.MENU;
         showDeathMenu = false;
+
+        // ------ 初始化局外强化等级 ------
+        permanentLevels = new int[Upgrade.Type.values().length];
+        // 将局外加成应用到初始玩家（局外属性永久生效）
+        applyPermanentUpgrades(player);
 
         // ------ 初始化菜单星星 ------
         stars = new Star[70];
@@ -238,14 +262,56 @@ public class Main extends ApplicationAdapter {
             ScreenUtils.clear(0, 0, 0, 1f);
             update(deltaTime);
             renderLoadingScreen();
+        } else if (currentState == GameState.STRENGTHEN) {
+            // 强化界面状态
+            ScreenUtils.clear(0.02f, 0.02f, 0.04f, 1f);
+            handleStrengthenInput();
+            renderStrengthen();
         } else {
             // 游戏状态：清屏 + 更新逻辑 + 渲染游戏画面
             ScreenUtils.clear(0.05f, 0.05f, 0.08f, 1f);
-            update(deltaTime);
-            gameRenderer.render(entityManager, player, upgradeSystem);
+
+            // ESC 切换暂停窗口
+            if (Gdx.input.isKeyJustPressed(Input.Keys.ESCAPE)) {
+                if (showStatsPanel) {
+                    showStatsPanel = false;
+                } else {
+                    isPaused = !isPaused;
+                }
+            }
+            // TAB 切换属性面板
+            if (Gdx.input.isKeyJustPressed(Input.Keys.TAB)) {
+                if (isPaused) {
+                    isPaused = false;
+                } else {
+                    showStatsPanel = !showStatsPanel;
+                }
+            }
+
+            // 未暂停且未打开属性面板时才更新游戏逻辑
+            if (!isPaused && !showStatsPanel) {
+                update(deltaTime);
+            }
+
+            gameRenderer.render(entityManager, player, upgradeSystem, isPaused, showStatsPanel);
+
             // 玩家死亡时叠加死亡菜单
             if (player.isDead() && showDeathMenu) {
                 renderDeathMenu();
+            }
+
+            // 暂停菜单
+            if (isPaused) {
+                renderPauseMenu();
+            }
+            // 属性面板
+            else if (showStatsPanel) {
+                renderStatsPanel();
+            }
+
+            // 处理游戏内 UI 按钮点击（未死亡时）
+            if (!player.isDead()) {
+                handleGameUIInput();
             }
         }
     }
@@ -521,8 +587,9 @@ public class Main extends ApplicationAdapter {
                     case 0: // 开始 -> 进入武器选择界面
                         currentState = GameState.WEAPON_SELECT;
                         break;
-                    case 1: // 强化（预留）
-                        // TODO: 打开强化界面
+                    case 1: // 强化 -> 打开局外强化界面
+                        currentState = GameState.STRENGTHEN;
+                        strengthenScrollY = 0;
                         break;
                     case 2: // 图鉴（预留）
                         // TODO: 打开图鉴界面
@@ -750,6 +817,336 @@ public class Main extends ApplicationAdapter {
         }
     }
 
+    // ==================== 强化界面渲染与输入 ====================
+
+    /**
+     * 渲染局外强化界面。
+     * 两列布局列出所有升级项，显示当前等级、下一级效果和升级按钮。
+     */
+    private void renderStrengthen() {
+        float screenW = Gdx.graphics.getWidth();
+        float screenH = Gdx.graphics.getHeight();
+
+        batch.begin();
+
+        // 标题
+        font.setColor(Color.GOLD);
+        String title = "局外强化";
+        float titleW = getTextWidth(title);
+        font.draw(batch, title, (screenW - titleW) / 2, screenH - 30);
+
+        // 总金币
+        font.setColor(Color.YELLOW);
+        String coinText = "持有金币: " + totalCoins;
+        font.draw(batch, coinText, 20, screenH - 30);
+
+        Upgrade.Type[] types = Upgrade.Type.values();
+        int itemsPerCol = (types.length + 1) / 2;
+        float colGap = 30;
+        float colWidth = (screenW - colGap * 3) / 2;
+        float leftX = colGap;
+        float rightX = colGap * 2 + colWidth;
+        float startY = screenH - 80;
+        float rowHeight = 42;
+
+        for (int i = 0; i < types.length; i++) {
+            Upgrade.Type type = types[i];
+            int lv = permanentLevels[i];
+            int cost = BASE_UPGRADE_COST * (1 << lv); // 500 * 2^lv
+            boolean canAfford = totalCoins >= cost;
+            boolean maxed = lv >= MAX_PERMANENT_LEVEL;
+
+            float colX = (i < itemsPerCol) ? leftX : rightX;
+            float rowIndex = (i < itemsPerCol) ? i : (i - itemsPerCol);
+            float y = startY - rowIndex * rowHeight;
+            float x = colX;
+
+            // 升级项名称
+            font.setColor(type.getColor());
+            font.draw(batch, type.getName(), x, y);
+
+            // 等级
+            font.setColor(Color.LIGHT_GRAY);
+            String lvText = "Lv." + lv + "/" + MAX_PERMANENT_LEVEL;
+            font.draw(batch, lvText, x + 90, y);
+
+            // 按钮
+            float btnX = x + colWidth - 110;
+            float btnY = y - 14;
+            float btnW = 100;
+            float btnH = 28;
+
+            if (maxed) {
+                font.setColor(Color.GRAY);
+                font.draw(batch, "已满级", btnX + 22, btnY + 20);
+            } else {
+                font.setColor(canAfford ? Color.GREEN : Color.RED);
+                font.draw(batch, "升级 " + cost, btnX + 8, btnY + 20);
+            }
+        }
+
+        // 返回按钮
+        float backBtnW = 200;
+        float backBtnH = 50;
+        float backBtnX = (screenW - backBtnW) / 2;
+        float backBtnY = 30;
+        font.setColor(Color.WHITE);
+        String backText = "返回主菜单";
+        float backTextW = getTextWidth(backText);
+        font.draw(batch, backText, backBtnX + (backBtnW - backTextW) / 2, backBtnY + 34);
+
+        batch.end();
+    }
+
+    /**
+     * 处理强化界面的点击输入。
+     * 点击升级按钮消耗金币提升等级，点击返回回到主菜单。
+     */
+    private void handleStrengthenInput() {
+        if (!Gdx.input.justTouched()) return;
+
+        float mouseX = Gdx.input.getX();
+        float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        float screenW = Gdx.graphics.getWidth();
+        float screenH = Gdx.graphics.getHeight();
+
+        Upgrade.Type[] types = Upgrade.Type.values();
+        int itemsPerCol = (types.length + 1) / 2;
+        float colGap = 30;
+        float colWidth = (screenW - colGap * 3) / 2;
+        float leftX = colGap;
+        float rightX = colGap * 2 + colWidth;
+        float startY = screenH - 80;
+        float rowHeight = 42;
+
+        for (int i = 0; i < types.length; i++) {
+            int lv = permanentLevels[i];
+            if (lv >= MAX_PERMANENT_LEVEL) continue;
+            int cost = BASE_UPGRADE_COST * (1 << lv);
+            if (totalCoins < cost) continue;
+
+            float colX = (i < itemsPerCol) ? leftX : rightX;
+            float rowIndex = (i < itemsPerCol) ? i : (i - itemsPerCol);
+            float y = startY - rowIndex * rowHeight;
+            float btnX = colX + colWidth - 110;
+            float btnY = y - 14;
+            float btnW = 100;
+            float btnH = 28;
+
+            if (mouseX >= btnX && mouseX <= btnX + btnW &&
+                mouseY >= btnY && mouseY <= btnY + btnH) {
+                totalCoins -= cost;
+                permanentLevels[i]++;
+                return;
+            }
+        }
+
+        // 返回按钮
+        float backBtnW = 200;
+        float backBtnH = 50;
+        float backBtnX = (screenW - backBtnW) / 2;
+        float backBtnY = 30;
+        if (mouseX >= backBtnX && mouseX <= backBtnX + backBtnW &&
+            mouseY >= backBtnY && mouseY <= backBtnY + backBtnH) {
+            currentState = GameState.MENU;
+        }
+    }
+
+    // ==================== 暂停菜单渲染与输入 ====================
+
+    /**
+     * 渲染暂停菜单。
+     * 半透明遮罩 + "游戏暂停" 标题 + 继续/退出按钮。
+     */
+    private void renderPauseMenu() {
+        float screenW = Gdx.graphics.getWidth();
+        float screenH = Gdx.graphics.getHeight();
+
+        // 半透明遮罩
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0, 0, 0, 0.6f);
+        shapeRenderer.rect(0, 0, screenW, screenH);
+        shapeRenderer.end();
+
+        batch.begin();
+
+        // 标题
+        font.setColor(Color.WHITE);
+        String title = "游戏暂停";
+        float titleW = getTextWidth(title);
+        font.draw(batch, title, (screenW - titleW) / 2, screenH / 2 + 80);
+
+        // 继续按钮
+        String resumeText = "继续游戏 (ESC)";
+        float resumeW = getTextWidth(resumeText);
+        font.setColor(Color.GREEN);
+        font.draw(batch, resumeText, (screenW - resumeW) / 2, screenH / 2 + 20);
+
+        // 退出按钮
+        String quitText = "退出本局";
+        float quitW = getTextWidth(quitText);
+        font.setColor(Color.RED);
+        font.draw(batch, quitText, (screenW - quitW) / 2, screenH / 2 - 40);
+
+        batch.end();
+    }
+
+    /**
+     * 处理暂停菜单的点击输入。
+     */
+    private void handlePauseMenuInput() {
+        if (!Gdx.input.justTouched()) return;
+
+        float mouseX = Gdx.input.getX();
+        float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        float screenW = Gdx.graphics.getWidth();
+        float screenH = Gdx.graphics.getHeight();
+
+        float btnW = 260;
+        float btnH = 50;
+        float centerX = (screenW - btnW) / 2;
+
+        // 继续按钮区域
+        float resumeY = screenH / 2 + 20 - 35;
+        if (mouseX >= centerX && mouseX <= centerX + btnW &&
+            mouseY >= resumeY && mouseY <= resumeY + btnH) {
+            isPaused = false;
+            return;
+        }
+
+        // 退出按钮区域
+        float quitY = screenH / 2 - 40 - 35;
+        if (mouseX >= centerX && mouseX <= centerX + btnW &&
+            mouseY >= quitY && mouseY <= quitY + btnH) {
+            resetGame();
+            currentState = GameState.MENU;
+            isPaused = false;
+        }
+    }
+
+    // ==================== 属性面板渲染与输入 ====================
+
+    /**
+     * 渲染人物属性面板。
+     * 半透明遮罩 + 两列属性列表。
+     */
+    private void renderStatsPanel() {
+        float screenW = Gdx.graphics.getWidth();
+        float screenH = Gdx.graphics.getHeight();
+
+        // 半透明遮罩
+        shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+        shapeRenderer.setColor(0, 0, 0, 0.7f);
+        shapeRenderer.rect(0, 0, screenW, screenH);
+        shapeRenderer.end();
+
+        batch.begin();
+
+        // 标题
+        font.setColor(Color.CYAN);
+        String title = "人物属性 (TAB关闭)";
+        float titleW = getTextWidth(title);
+        font.draw(batch, title, (screenW - titleW) / 2, screenH - 40);
+
+        // 属性数据
+        String[][] stats = {
+            {"生命值", player.getHp() + "/" + player.getMaxHp()},
+            {"攻击力", String.valueOf(player.getAttackDamage())},
+            {"攻击范围", String.format("%.0f", player.getAttackRange())},
+            {"攻击速度", String.format("%.2fs", player.getAttackCooldown())},
+            {"移动速度", String.format("%.0f", player.getSpeed())},
+            {"暴击率", String.format("%.0f%%", player.getCritRate() * 100)},
+            {"暴击伤害", String.format("%.0f%%", player.getCritDamage() * 100)},
+            {"生命回复", String.format("%.1f/s", player.getHpRegen())},
+            {"伤害减免", String.format("%.0f%%", player.getDamageReduction() * 100)},
+            {"击杀回血", String.valueOf(player.getKillHeal())},
+            {"生命偷取", String.format("%.0f%%", player.getLifeSteal() * 100)},
+            {"死亡爆炸", String.valueOf(player.getDeathExplosionDamage())},
+            {"减速光环", String.format("%.0f", player.getSlowAuraRange())},
+            {"反伤比例", String.format("%.0f%%", player.getThornsRatio() * 100)},
+            {"复活次数", String.valueOf(player.getReviveCount())},
+            {"经验倍率", String.format("%.0f%%", player.getExpMultiplier() * 100)},
+            {"拾取范围", String.format("%.0f", player.getMagnetRange())},
+            {"击退力度", String.format("%.0f%%", player.getKnockbackForce() * 100)},
+            {"弹射穿透", String.valueOf(player.getPierceCount())},
+            {"多重射击", String.valueOf(player.getExtraTargets())},
+            {"分裂次数", String.valueOf(player.getSplitCount())},
+            {"金币掉落", String.format("%.0f%%", player.getCoinDropRate() * 100)},
+            {"金币倍率", String.format("%.0f%%", player.getCoinMultiplier() * 100)},
+            {"本局金币", String.valueOf(player.getCurrentCoins())},
+        };
+
+        int itemsPerCol = (stats.length + 1) / 2;
+        float colGap = 40;
+        float colWidth = (screenW - colGap * 3) / 2;
+        float leftX = colGap;
+        float rightX = colGap * 2 + colWidth;
+        float startY = screenH - 80;
+        float rowHeight = 28;
+
+        for (int i = 0; i < stats.length; i++) {
+            float colX = (i < itemsPerCol) ? leftX : rightX;
+            float rowIndex = (i < itemsPerCol) ? i : (i - itemsPerCol);
+            float y = startY - rowIndex * rowHeight;
+
+            font.setColor(Color.LIGHT_GRAY);
+            font.draw(batch, stats[i][0] + ":", colX, y);
+            font.setColor(Color.WHITE);
+            font.draw(batch, stats[i][1], colX + 110, y);
+        }
+
+        batch.end();
+    }
+
+    /**
+     * 处理属性面板的点击输入（点击空白处关闭）。
+     */
+    private void handleStatsPanelInput() {
+        if (Gdx.input.justTouched()) {
+            showStatsPanel = false;
+        }
+    }
+
+    /**
+     * 处理游戏内 UI 按钮点击（齿轮/背包）。
+     * 在 PLAYING 状态下每帧调用，检测左下角两个按钮。
+     */
+    private void handleGameUIInput() {
+        if (!Gdx.input.justTouched()) return;
+
+        float mouseX = Gdx.input.getX();
+        float mouseY = Gdx.graphics.getHeight() - Gdx.input.getY();
+
+        // 齿轮按钮（暂停）
+        if (mouseX >= PAUSE_BTN_X && mouseX <= PAUSE_BTN_X + GAME_BTN_SIZE &&
+            mouseY >= GAME_BTN_Y && mouseY <= GAME_BTN_Y + GAME_BTN_SIZE) {
+            isPaused = !isPaused;
+            showStatsPanel = false;
+            return;
+        }
+
+        // 背包按钮（属性面板）
+        if (mouseX >= STATS_BTN_X && mouseX <= STATS_BTN_X + GAME_BTN_SIZE &&
+            mouseY >= GAME_BTN_Y && mouseY <= GAME_BTN_Y + GAME_BTN_SIZE) {
+            showStatsPanel = !showStatsPanel;
+            isPaused = false;
+            return;
+        }
+
+        // 如果暂停菜单打开，处理暂停菜单输入
+        if (isPaused) {
+            handlePauseMenuInput();
+            return;
+        }
+
+        // 如果属性面板打开，处理属性面板输入
+        if (showStatsPanel) {
+            handleStatsPanelInput();
+        }
+    }
+
     /**
      * 渲染加载界面。
      * 纯黑背景 + 居中 "加载中..." 文字。
@@ -880,6 +1277,8 @@ public class Main extends ApplicationAdapter {
         if (currentWeapon != null) {
             player.setWeapon(currentWeapon);
         }
+        // 应用局外强化到新建的玩家
+        applyPermanentUpgrades(player);
 
         // 重建实体管理器（清空所有敌人和投射物）
         entityManager = new EntityManager();
@@ -896,6 +1295,113 @@ public class Main extends ApplicationAdapter {
 
         // 关闭死亡菜单
         showDeathMenu = false;
+    }
+
+    /**
+     * 将局外强化等级应用到玩家初始属性。
+     * 在 create() 和 resetGame() 重建玩家后调用。
+     */
+    private void applyPermanentUpgrades(Player p) {
+        for (Upgrade.Type type : Upgrade.Type.values()) {
+            int lv = permanentLevels[type.ordinal()];
+            if (lv <= 0) continue;
+            switch (type) {
+                case ATTACK_RANGE:
+                    p.setAttackRange(p.getAttackRange() * (1 + 0.03f * lv));
+                    break;
+                case ATTACK_SPEED:
+                    p.setAttackCooldown(p.getAttackCooldown() * (1 - 0.03f * lv));
+                    break;
+                case MOVE_SPEED:
+                    p.setSpeed(p.getSpeed() * (1 + 0.03f * lv));
+                    break;
+                case ATTACK_DAMAGE:
+                    p.setAttackDamage((int) (p.getAttackDamage() * (1 + 0.05f * lv)));
+                    break;
+                case CRIT_RATE:
+                    p.setCritRate(p.getCritRate() + 0.01f * lv);
+                    break;
+                case CRIT_DAMAGE:
+                    p.setCritDamage(p.getCritDamage() + 0.05f * lv);
+                    break;
+                case MAX_HP:
+                    p.setMaxHp(p.getMaxHp() + 10 * lv);
+                    p.setHp(p.getHp() + 10 * lv);
+                    break;
+                case HP_REGEN:
+                    p.setHpRegen(p.getHpRegen() + 0.2f * lv);
+                    break;
+                case DAMAGE_REDUCTION:
+                    p.setDamageReduction(Math.min(0.8f, p.getDamageReduction() + 0.02f * lv));
+                    break;
+                case KILL_HEAL:
+                    p.setKillHeal(p.getKillHeal() + 1 * lv);
+                    break;
+                case LIFE_STEAL:
+                    p.setLifeSteal(p.getLifeSteal() + 0.01f * lv);
+                    break;
+                case DEATH_EXPLOSION:
+                    p.setDeathExplosionDamage(p.getDeathExplosionDamage() + 3 * lv);
+                    break;
+                case SLOW_AURA:
+                    p.setSlowAuraRange(p.getSlowAuraRange() + 8 * lv);
+                    break;
+                case THORNS:
+                    p.setThornsRatio(p.getThornsRatio() + 0.03f * lv);
+                    break;
+                case EXP_GAIN:
+                    p.setExpMultiplier(p.getExpMultiplier() + 0.03f * lv);
+                    break;
+                case MAGNET_RANGE:
+                    p.setMagnetRange(p.getMagnetRange() + 10 * lv);
+                    break;
+                case KNOCKBACK:
+                    p.setKnockbackForce(p.getKnockbackForce() + 0.03f * lv);
+                    break;
+                case COIN_DROP_RATE:
+                    p.setCoinDropRate(p.getCoinDropRate() + 0.03f * lv);
+                    break;
+                case COIN_MULTIPLIER:
+                    p.setCoinMultiplier(p.getCoinMultiplier() + 0.03f * lv);
+                    break;
+                // PIERCE、EXTRA_TARGET、SPLIT_COUNT、REVIVE 局外不加，避免破坏平衡
+                default:
+                    break;
+            }
+        }
+    }
+
+    /**
+     * 禁用 Windows 输入法（IME），防止中文输入法拦截游戏按键。
+     * <p>
+     * 通过反射获取 GLFW 窗口的 Win32 HWND，然后调用 imm32.dll 的
+     * ImmAssociateContext(hwnd, NULL) 将窗口的输入法上下文置空。
+     * 非 Windows 系统直接跳过。
+     */
+    private void disableIME() {
+        String os = System.getProperty("os.name").toLowerCase();
+        if (!os.contains("win")) return;
+
+        try {
+            // 反射获取 Lwjgl3Window 和 GLFW window handle
+            Object window = Class.forName("com.badlogic.gdx.backends.lwjgl3.Lwjgl3Graphics")
+                .getMethod("getWindow").invoke(Gdx.graphics);
+            long glfwHandle = (Long) window.getClass().getMethod("getWindowHandle").invoke(window);
+
+            // 反射获取 Windows HWND
+            Class<?> nativeWin32 = Class.forName("org.lwjgl.glfw.GLFWNativeWin32");
+            long hwnd = (Long) nativeWin32.getMethod("glfwGetWin32Window", long.class)
+                .invoke(null, glfwHandle);
+
+            // 使用 JNA 调用 ImmAssociateContext(hwnd, NULL)
+            com.sun.jna.NativeLibrary imm32 = com.sun.jna.NativeLibrary.getInstance("imm32");
+            com.sun.jna.Pointer hwndPtr = new com.sun.jna.Pointer(hwnd);
+            imm32.getFunction("ImmAssociateContext").invoke(new Object[]{hwndPtr, null});
+
+            Gdx.app.log("IME", "已禁用游戏窗口的输入法");
+        } catch (Exception e) {
+            Gdx.app.error("IME", "禁用输入法失败", e);
+        }
     }
 
     @Override
