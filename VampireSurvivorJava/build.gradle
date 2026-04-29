@@ -1,0 +1,24 @@
+allprojects {
+    repositories {
+        mavenCentral()
+        google()
+    }
+
+    version = '1.0'
+    ext {
+        appName = "VampireSurvivor"
+        gdxVersion = '1.12.1'
+        roboVMVersion = '2.3.20'
+        box2DLightsVersion = '1.5'
+        ashleyVersion = '1.7.4'
+        aiVersion = '1.8.2'
+        gdxControllersVersion = '2.2.1'
+    }
+}
+
+subprojects {
+    apply plugin: 'java-library'
+
+    sourceCompatibility = 17
+    targetCompatibility = 17
+}

@@ -1,0 +1,15 @@
+dependencies {
+    api project(':core')
+    api "com.badlogicgames.gdx:gdx-backend-lwjgl3:$gdxVersion"
+    api "com.badlogicgames.gdx:gdx-platform:$gdxVersion:natives-desktop"
+    api "com.badlogicgames.gdx:gdx-box2d-platform:$gdxVersion:natives-desktop"
+}
+
+task run(type: JavaExec) {
+    dependsOn classes
+    mainClass.set('com.vampire.game.desktop.DesktopLauncher')
+    classpath = sourceSets.main.runtimeClasspath
+    standardInput = System.in
+    workingDir = rootProject.file('core/assets')
+    ignoreExitValue = true
+}
