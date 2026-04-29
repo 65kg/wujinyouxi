@@ -8,6 +8,7 @@ import com.badlogic.gdx.graphics.g2d.BitmapFont;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
 import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 import com.badlogic.gdx.math.Matrix4;
+import io.github.some_example_name.Coin;
 import io.github.some_example_name.DamageNumber;
 import io.github.some_example_name.ExpOrb;
 import io.github.some_example_name.Projectile;
@@ -106,7 +107,7 @@ public class GameRenderer {
     }
 
     /**
-     * 渲染世界中的实体：敌人、投射物、经验球。
+     * 渲染世界中的实体：敌人、投射物、经验球、金币。
      */
     private void renderWorldEntities(EntityManager entityManager) {
         // 敌人可能使用 SpriteBatch 绘制图片，各自独立管理渲染状态
@@ -114,15 +115,22 @@ public class GameRenderer {
             if (enemy.isAlive()) enemy.render(shapeRenderer);
         }
 
-        // 投射物和经验球统一使用 ShapeRenderer
+        // 投射物统一使用 ShapeRenderer
         shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
         for (Projectile projectile : entityManager.getProjectiles()) {
             if (projectile.isActive()) projectile.render(shapeRenderer);
         }
-        for (ExpOrb orb : entityManager.getExpOrbs()) {
-            if (orb.isActive()) orb.render(shapeRenderer);
-        }
         shapeRenderer.end();
+
+        // 经验球和金币使用图标纹理（SpriteBatch）
+        batch.begin();
+        for (ExpOrb orb : entityManager.getExpOrbs()) {
+            if (orb.isActive()) orb.render(batch);
+        }
+        for (Coin coin : entityManager.getCoins()) {
+            if (coin.isActive()) coin.render(batch);
+        }
+        batch.end();
 
         // 伤害数字（使用 SpriteBatch）
         batch.begin();
@@ -166,11 +174,14 @@ public class GameRenderer {
         shapeRenderer.rect(barX, expBarY, barWidth * expPercent, barHeight);
         shapeRenderer.end();
 
-        // 等级和经验文字（白色）
+        // 等级、经验和金币文字（白色）
         batch.begin();
         font.setColor(Color.WHITE);
         font.draw(batch, "Lv." + player.getLevel() + "  Exp: " + player.getExp() + "/" + player.getMaxExp(),
                   10, Gdx.graphics.getHeight() - 10);
+        font.setColor(Color.GOLD);
+        font.draw(batch, "金币: " + player.getCurrentCoins(),
+                  10, Gdx.graphics.getHeight() - 30);
         batch.end();
     }
 }

@@ -28,6 +28,7 @@ public abstract class Enemy {
     protected int damage;              // 触碰玩家时造成的伤害
     protected float damageCooldown;    // 对玩家造成伤害的冷却计时器（秒）
     protected static final float DAMAGE_COOLDOWN_DURATION = 0.5f; // 每只怪物触碰冷却 0.5 秒
+    protected int baseCoinValue;       // 死亡时掉落的基础金币数量
 
     public Enemy(float x, float y) {
         this.x = x;          // X 坐标
@@ -35,6 +36,7 @@ public abstract class Enemy {
         this.alive = true;   // 是否存活
         this.damage = 10;    // 默认触碰伤害
         this.damageCooldown = 0; // 初始无冷却
+        this.baseCoinValue = 1; // 默认掉落 1 金币
     }
 
     /**
@@ -148,5 +150,13 @@ public abstract class Enemy {
 
     public void resetDamageCooldown() {
         this.damageCooldown = DAMAGE_COOLDOWN_DURATION;
+    }
+
+    public int getBaseCoinValue() {
+        return baseCoinValue;
+    }
+
+    public void setBaseCoinValue(int baseCoinValue) {
+        this.baseCoinValue = baseCoinValue;
     }
 }

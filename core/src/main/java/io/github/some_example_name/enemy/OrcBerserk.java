@@ -11,6 +11,7 @@ public class OrcBerserk extends SpriteEnemy {
         this.maxHp = 80;    // 最大血量（高）
         this.hp = maxHp;    // 当前血量
         this.damage = 18;   // 触碰伤害（最高，精英怪）
+        this.baseCoinValue = 4; // 掉落金币（精英怪更多）
         this.radius = 20f;  // 碰撞半径（较大）
     }
 

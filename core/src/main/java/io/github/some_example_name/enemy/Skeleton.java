@@ -11,6 +11,7 @@ public class Skeleton extends SpriteEnemy {
         this.maxHp = 20;    // 最大血量（极低）
         this.hp = maxHp;    // 当前血量
         this.damage = 5;    // 触碰伤害（最低）
+        this.baseCoinValue = 1; // 掉落金币
         this.radius = 14f;  // 碰撞半径（较小）
     }
 

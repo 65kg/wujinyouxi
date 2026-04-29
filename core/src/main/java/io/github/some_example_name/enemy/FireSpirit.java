@@ -11,6 +11,7 @@ public class FireSpirit extends SpriteEnemy {
         this.maxHp = 25;    // 最大血量（低）
         this.hp = maxHp;    // 当前血量
         this.damage = 6;    // 触碰伤害（较低）
+        this.baseCoinValue = 1; // 掉落金币
         this.radius = 14f;  // 碰撞半径（较小）
     }
 

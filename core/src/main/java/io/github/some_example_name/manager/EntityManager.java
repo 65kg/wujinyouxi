@@ -1,5 +1,6 @@
 package io.github.some_example_name.manager;
 
+import io.github.some_example_name.Coin;
 import io.github.some_example_name.DamageNumber;
 import io.github.some_example_name.ExpOrb;
 import io.github.some_example_name.Projectile;
@@ -10,7 +11,7 @@ import java.util.Iterator;
 import java.util.List;
 
 /**
- * 实体管理器，统一管理游戏中所有动态实体（敌人、投射物、经验球）。
+ * 实体管理器，统一管理游戏中所有动态实体（敌人、投射物、经验球、金币）。
  * <p>
  * 职责：提供增删查、批量清理的统一接口，解耦各系统对实体集合的直接操作。
  * 未来扩展新实体类型（如道具、陷阱等）时，在此类中添加对应列表即可。
@@ -21,12 +22,14 @@ public class EntityManager {
     private final ArrayList<Projectile> projectiles;
     private final ArrayList<ExpOrb> expOrbs;
     private final ArrayList<DamageNumber> damageNumbers;
+    private final ArrayList<Coin> coins;
 
     public EntityManager() {
         this.enemies = new ArrayList<>();
         this.projectiles = new ArrayList<>();
         this.expOrbs = new ArrayList<>();
         this.damageNumbers = new ArrayList<>();
+        this.coins = new ArrayList<>();
     }
 
     // ==================== 敌人管理 ====================
@@ -137,10 +140,24 @@ public class EntityManager {
         damageNumbers.removeIf(d -> !d.isActive());
     }
 
+    // ==================== 金币管理 ====================
+
+    public void addCoin(Coin coin) {
+        coins.add(coin);
+    }
+
+    public List<Coin> getCoins() {
+        return coins;
+    }
+
+    public void cleanupInactiveCoins() {
+        coins.removeIf(c -> !c.isActive());
+    }
+
     // ==================== 回调接口 ====================
 
     /**
-     * 敌人死亡回调接口，用于解耦死亡处理逻辑（如掉落经验球）。
+     * 敌人死亡回调接口，用于解耦死亡处理逻辑（如掉落经验球、金币）。
      */
     public interface EnemyDropCallback {
         /**

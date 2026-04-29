@@ -11,6 +11,7 @@ public class OrcShaman extends SpriteEnemy {
         this.maxHp = 60;    // 最大血量（中等偏高）
         this.hp = maxHp;    // 当前血量
         this.damage = 10;   // 触碰伤害（中等）
+        this.baseCoinValue = 2; // 掉落金币
         this.radius = 18f;  // 碰撞半径（中等）
     }
 

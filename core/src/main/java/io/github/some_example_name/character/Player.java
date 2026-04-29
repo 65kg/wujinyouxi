@@ -63,6 +63,11 @@ public abstract class Player {
     protected float expMultiplier;
     protected float magnetRange;
 
+    // ==================== 金币 ====================
+    protected float coinDropRate;     // 金币掉落几率倍率（默认 1.0 = 20% 基础）
+    protected float coinMultiplier;   // 金币获取数量倍率（默认 1.0）
+    protected int currentCoins;       // 本局已获得金币
+
     // ==================== 武器 ====================
     protected Weapon weapon;
 
@@ -103,6 +108,9 @@ public abstract class Player {
         this.knockbackForce = 1.0f;            // 击退力度系数
         this.expMultiplier = 1.0f;             // 经验获取倍率
         this.magnetRange = 150f;               // 经验球吸引范围
+        this.coinDropRate = 1.0f;              // 金币掉落几率倍率
+        this.coinMultiplier = 1.0f;            // 金币获取数量倍率
+        this.currentCoins = 0;                 // 本局已获得金币
         this.isMoving = false;                 // 是否正在移动
         this.isAttacking = false;              // 是否正在攻击
         this.facingLeft = false;               // 是否朝向左方
@@ -386,6 +394,16 @@ public abstract class Player {
 
     public float getKnockbackForce() { return knockbackForce; }
     public void setKnockbackForce(float knockbackForce) { this.knockbackForce = knockbackForce; }
+
+    public float getCoinDropRate() { return coinDropRate; }
+    public void setCoinDropRate(float coinDropRate) { this.coinDropRate = coinDropRate; }
+
+    public float getCoinMultiplier() { return coinMultiplier; }
+    public void setCoinMultiplier(float coinMultiplier) { this.coinMultiplier = coinMultiplier; }
+
+    public int getCurrentCoins() { return currentCoins; }
+    public void setCurrentCoins(int currentCoins) { this.currentCoins = currentCoins; }
+    public void addCoins(int amount) { this.currentCoins += amount; }
 
     public float getExpMultiplier() { return expMultiplier; }
     public void setExpMultiplier(float expMultiplier) { this.expMultiplier = expMultiplier; }

@@ -25,7 +25,9 @@ public class Upgrade {
         EXP_GAIN("智慧", "经验获取 +20%", Color.SKY),
         MAGNET_RANGE("引力", "拾取范围 +30%", Color.SALMON),
         KNOCKBACK("击退", "击退效果 +25%", Color.OLIVE),
-        SPLIT_COUNT("分裂", "子弹击中后分裂 +1", Color.CHARTREUSE);
+        SPLIT_COUNT("分裂", "子弹击中后分裂 +1", Color.CHARTREUSE),
+        COIN_DROP_RATE("财运", "金币掉落几率 +15%", Color.GOLD),
+        COIN_MULTIPLIER("贪婪", "获得金币数量 +25%", Color.YELLOW);
 
         private final String name;
         private final String description;
@@ -121,6 +123,12 @@ public class Upgrade {
                 break;
             case SPLIT_COUNT:
                 player.setSplitCount(player.getSplitCount() + 1);
+                break;
+            case COIN_DROP_RATE:
+                player.setCoinDropRate(player.getCoinDropRate() + 0.15f);
+                break;
+            case COIN_MULTIPLIER:
+                player.setCoinMultiplier(player.getCoinMultiplier() + 0.25f);
                 break;
         }
     }

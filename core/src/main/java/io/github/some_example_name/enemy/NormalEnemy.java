@@ -32,6 +32,7 @@ public class NormalEnemy extends Enemy {
         this.maxHp = 30;          // 最大血量
         this.hp = maxHp;          // 当前血量
         this.damage = 8;          // 触碰伤害（较低）
+        this.baseCoinValue = 1;   // 掉落金币
         this.isDying = false;     // 是否正在死亡
         this.currentFrame = 0;    // 当前动画帧
         this.animationTimer = 0;  // 动画计时器

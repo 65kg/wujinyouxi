@@ -11,6 +11,7 @@ public class Plent extends SpriteEnemy {
         this.maxHp = 100;   // 最大血量（极高）
         this.hp = maxHp;    // 当前血量
         this.damage = 15;   // 触碰伤害（高）
+        this.baseCoinValue = 3; // 掉落金币
         this.radius = 18f;  // 碰撞半径（中等）
     }
 

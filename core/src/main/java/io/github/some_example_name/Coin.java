@@ -2,34 +2,37 @@ package io.github.some_example_name;
 
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.glutils.ShapeRenderer;
 
-public class ExpOrb {
+/**
+ * 金币实体，敌人死亡时掉落，玩家靠近后自动拾取。
+ * <p>
+ * 行为类似 ExpOrb：在吸引范围内向玩家移动，靠近后被吸收。
+ */
+public class Coin {
     private float x;
     private float y;
-    private float radius;
-    private int expValue;
+    private int value;          // 金币面值
     private boolean active;
     private float magnetSpeed;
+    private static final float ABSORB_DIST = 20;
 
-    // 共享纹理
+    // 共享纹理（所有金币实例共用）
     private static Texture icon;
     private static boolean textureLoaded = false;
-    private static final float DRAW_SIZE = 20;
+    private static final float DRAW_SIZE = 24;
 
-    public ExpOrb(float x, float y, int expValue) {
-        this.x = x;                              // X 坐标
-        this.y = y;                              // Y 坐标
-        this.expValue = expValue;                // 经验值
-        this.radius = expValue >= 20 ? 10 : 6;   // 碰撞半径（大经验球更大）
-        this.active = true;                      // 是否活跃
-        this.magnetSpeed = 700;                  // 被吸引时的移动速度
+    public Coin(float x, float y, int value) {
+        this.x = x;
+        this.y = y;
+        this.value = value;
+        this.active = true;
+        this.magnetSpeed = 700;  // 与经验球相同的吸引速度
         loadTexture();
     }
 
     private static synchronized void loadTexture() {
         if (textureLoaded) return;
-        icon = new Texture("common/Bonus_Icon.png");
+        icon = new Texture("common/Coin_A.png");
         textureLoaded = true;
     }
 
@@ -47,23 +50,11 @@ public class ExpOrb {
         }
 
         // 被玩家吸收
-        if (distance < 20) {
+        if (distance < ABSORB_DIST) {
             active = false;
         }
     }
 
-    public void render(ShapeRenderer shapeRenderer) {
-        if (!active) return;
-        // 保留 ShapeRenderer 备用渲染
-        shapeRenderer.setColor(new com.badlogic.gdx.graphics.Color(0.3f, 0.8f, 1.0f, 0.4f));
-        shapeRenderer.circle(x, y, radius + 3);
-        shapeRenderer.setColor(com.badlogic.gdx.graphics.Color.CYAN);
-        shapeRenderer.circle(x, y, radius);
-    }
-
-    /**
-     * 使用图标纹理渲染经验球。
-     */
     public void render(SpriteBatch batch) {
         if (!active) return;
         batch.draw(icon, x - DRAW_SIZE / 2, y - DRAW_SIZE / 2, DRAW_SIZE, DRAW_SIZE);
@@ -73,8 +64,8 @@ public class ExpOrb {
         return active;
     }
 
-    public int getExpValue() {
-        return expValue;
+    public int getValue() {
+        return value;
     }
 
     public float getX() {

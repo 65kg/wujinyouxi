@@ -11,6 +11,7 @@ public class OrcWarrior extends SpriteEnemy {
         this.maxHp = 50;    // 最大血量（中等）
         this.hp = maxHp;    // 当前血量
         this.damage = 12;   // 触碰伤害（中等偏高）
+        this.baseCoinValue = 2; // 掉落金币
         this.radius = 18f;  // 碰撞半径（中等）
     }
 

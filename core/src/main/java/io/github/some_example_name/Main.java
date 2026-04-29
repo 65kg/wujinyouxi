@@ -14,6 +14,7 @@ import com.badlogic.gdx.utils.ScreenUtils;
 import io.github.some_example_name.character.Player;
 import io.github.some_example_name.character.Shinobi;
 import io.github.some_example_name.enemy.Enemy;
+import io.github.some_example_name.Coin;
 import io.github.some_example_name.DamageNumber;
 import io.github.some_example_name.manager.EntityManager;
 import io.github.some_example_name.map.MapGenerator;
@@ -98,6 +99,10 @@ public class Main extends ApplicationAdapter {
     private static final float WEAPON_CARD_HEIGHT = 320;
     private static final float WEAPON_CARD_SPACING = 40;
     private final Weapon[] WEAPONS = {new Pistol(), new Staff(), new Bow()};
+
+    // ==================== 金币系统 ====================
+    /** 玩家累计持有的总金币（跨局保留） */
+    private int totalCoins;
 
     // ==================== 主菜单配置 ====================
     private static final String[] MENU_BUTTONS = {"开始", "强化", "图鉴"};
@@ -356,10 +361,26 @@ public class Main extends ApplicationAdapter {
             upgradeSystem.generateOptions();
         }
 
-        // ---- 8. 清理死亡敌人并掉落经验 ----
-        // 使用回调模式：死亡时通过 ExpSystem 生成经验球
+        // ---- 7.5 金币系统 ----
+        // 更新金币位置、检测吸收
+        for (Coin coin : entityManager.getCoins()) {
+            if (!coin.isActive()) continue;
+            coin.update(deltaTime, player.getCenterX(), player.getCenterY(), player.getMagnetRange());
+            if (!coin.isActive()) {
+                player.addCoins(coin.getValue());
+            }
+        }
+        entityManager.cleanupInactiveCoins();
+
+        // ---- 8. 清理死亡敌人并掉落经验和金币 ----
+        // 使用回调模式：死亡时通过 ExpSystem 生成经验球，同时触发金币掉落
         entityManager.cleanupDeadEnemies(enemy -> {
             expSystem.onEnemyDied(enemy);
+            // 金币掉落：基础概率 20% * coinDropRate 倍率
+            if (Math.random() < 0.20 * player.getCoinDropRate()) {
+                int coinValue = Math.max(1, (int) (enemy.getBaseCoinValue() * player.getCoinMultiplier()));
+                entityManager.addCoin(new Coin(enemy.getX(), enemy.getY(), coinValue));
+            }
             // 击杀回血
             if (player.getKillHeal() > 0) {
                 player.setHp(Math.min(player.getMaxHp(), player.getHp() + player.getKillHeal()));
@@ -467,6 +488,10 @@ public class Main extends ApplicationAdapter {
         font.setColor(0.85f, 0.85f, 0.85f, 1f);
         font.draw(batch, VERSION_TEXT, screenW - 150, screenH - 20);
         font.draw(batch, AUTHOR_TEXT, screenW - 150, screenH - 45);
+
+        // 左上角显示总金币
+        font.setColor(Color.GOLD);
+        font.draw(batch, "金币: " + totalCoins, 20, screenH - 20);
         batch.end();
     }
 
@@ -837,10 +862,13 @@ public class Main extends ApplicationAdapter {
     /**
      * 重置游戏状态。
      * <p>
-     * 保留当前武器选择，重置玩家位置、血量、等级、经验，
-     * 清空所有敌人、投射物、经验球和伤害数字。
+     * 保留当前武器选择，将本局金币累加到 totalCoins，
+     * 重置玩家位置、血量、等级、经验，清空所有敌人、投射物、经验球和伤害数字。
      */
     private void resetGame() {
+        // 将本局金币累加到总金币
+        totalCoins += player.getCurrentCoins();
+
         // 保留当前武器
         Weapon currentWeapon = player.getWeapon();
 
