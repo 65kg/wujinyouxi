@@ -39,6 +39,7 @@ public class UpgradeSystem {
 
     /**
      * 进入升级状态，随机生成 3 个不重复的升级选项。
+     * 已到达属性上限的选项会被过滤掉。
      * 由 Main 在检测到玩家升级时调用。
      */
     public void generateOptions() {
@@ -48,13 +49,29 @@ public class UpgradeSystem {
         Upgrade.Type[] types = Upgrade.Type.values();
         ArrayList<Upgrade.Type> available = new ArrayList<>();
         for (Upgrade.Type type : types) {
-            available.add(type);
+            if (isUpgradeAvailable(type)) {
+                available.add(type);
+            }
         }
 
         // 随机打乱后取前 3 个
         java.util.Collections.shuffle(available);
         for (int i = 0; i < Math.min(3, available.size()); i++) {
             upgradeOptions.add(new Upgrade(available.get(i)));
+        }
+    }
+
+    /**
+     * 判断某个升级选项是否仍可用（未达到属性上限）。
+     */
+    private boolean isUpgradeAvailable(Upgrade.Type type) {
+        switch (type) {
+            case CRIT_RATE:
+                return player.getCritRate() < 1.0f; // 暴击率上限 100%
+            case DAMAGE_REDUCTION:
+                return player.getDamageReduction() < 0.8f; // 减伤上限 80%
+            default:
+                return true;
         }
     }
 

@@ -17,7 +17,7 @@ public class ExpOrb {
         this.expValue = expValue;                // 经验值
         this.radius = expValue >= 20 ? 10 : 6;   // 碰撞半径（大经验球更大）
         this.active = true;                      // 是否活跃
-        this.magnetSpeed = 150;                  // 被吸引时的移动速度
+        this.magnetSpeed = 700;                  // 被吸引时的移动速度
     }
 
     public void update(float deltaTime, float playerX, float playerY, float magnetRange) {

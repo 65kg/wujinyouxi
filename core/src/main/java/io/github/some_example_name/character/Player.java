@@ -72,11 +72,6 @@ public abstract class Player {
     protected boolean facingLeft;
     protected boolean isDead;
 
-    /** 碰撞无敌时间（秒），被怪物触碰后进入短暂无敌，避免连续扣血 */
-    protected float invincibleTimer;
-    /** 无敌持续时间 */
-    protected static final float INVINCIBLE_DURATION = 0.5f;
-
     public Player(float startX, float startY) {
         this.x = startX;                       // X 坐标
         this.y = startY;                       // Y 坐标
@@ -111,7 +106,6 @@ public abstract class Player {
         this.isMoving = false;                 // 是否正在移动
         this.isAttacking = false;              // 是否正在攻击
         this.facingLeft = false;               // 是否朝向左方
-        this.invincibleTimer = 0;              // 无敌计时器
         this.weapon = new Pistol();            // 默认武器：手枪
     }
 
@@ -124,12 +118,6 @@ public abstract class Player {
         if (isDead) {
             updateAnimation(deltaTime);
             return;
-        }
-
-        // 递减无敌时间
-        if (invincibleTimer > 0) {
-            invincibleTimer -= deltaTime;
-            if (invincibleTimer < 0) invincibleTimer = 0;
         }
 
         float moveDistance = speed * deltaTime;
@@ -202,19 +190,15 @@ public abstract class Player {
 
     public void takeDamage(int damage) {
         if (isDead) return;
-        if (invincibleTimer > 0) return; // 无敌期间不受伤害
         // 应用减伤
         int actualDamage = Math.max(1, (int) (damage * (1f - damageReduction)));
         hp -= actualDamage;
-        // 触发无敌时间
-        invincibleTimer = INVINCIBLE_DURATION;
         if (hp <= 0) {
             // 复活判定
             if (reviveCount > 0) {
                 reviveCount--;
                 hp = (int) (maxHp * 0.3f);
                 isDead = false;
-                invincibleTimer = INVINCIBLE_DURATION; // 复活后也无敌
             } else {
                 hp = 0;
                 isDead = true;

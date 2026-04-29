@@ -105,7 +105,7 @@ public class Upgrade {
                 player.setSlowAuraRange(player.getSlowAuraRange() + 60);
                 break;
             case THORNS:
-                player.setThornsRatio(Math.min(player.getThornsRatio() + 0.15f, 1.0f));
+                player.setThornsRatio(player.getThornsRatio() + 0.15f);
                 break;
             case REVIVE:
                 player.setReviveCount(player.getReviveCount() + 1);

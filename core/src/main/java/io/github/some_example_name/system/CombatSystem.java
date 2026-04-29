@@ -199,8 +199,8 @@ public class CombatSystem {
 
     /**
      * 检测敌人与玩家的碰撞。
-     * 当敌人触碰到玩家时，对玩家造成伤害。
-     * 玩家受伤后会进入短暂无敌时间，避免被多个怪物围着瞬间秒杀。
+     * 每只怪物有独立的 0.5 秒触碰冷却，避免同一怪物每帧连续扣血。
+     * 反伤无上限，可无限堆叠。
      */
     public void handleEnemyPlayerCollisions() {
         for (Enemy enemy : entityManager.getEnemies()) {
@@ -212,12 +212,16 @@ public class CombatSystem {
 
             // 敌人碰撞半径 + 玩家判定半径（约 20）
             if (dist < enemy.getRadius() + 20) {
-                int dmg = enemy.getDamage();
-                player.takeDamage(dmg);
-                // 反伤（基于实际碰撞伤害）
-                if (player.getThornsRatio() > 0) {
-                    int reflect = (int) (dmg * player.getThornsRatio());
-                    enemy.takeDamage(reflect);
+                // 该怪物的伤害冷却已结束才能造成伤害
+                if (enemy.getDamageCooldown() <= 0) {
+                    int dmg = enemy.getDamage();
+                    player.takeDamage(dmg);
+                    enemy.resetDamageCooldown();
+                    // 反伤：无上限，收到多少伤害按倍率返还
+                    if (player.getThornsRatio() > 0) {
+                        int reflect = (int) (dmg * player.getThornsRatio());
+                        enemy.takeDamage(reflect);
+                    }
                 }
             }
         }
